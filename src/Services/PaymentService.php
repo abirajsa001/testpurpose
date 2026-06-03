@@ -168,7 +168,6 @@ class PaymentService
                         'alloweddata' => $billingAddress->countryId,
                         'allowedcountry' => $allowedCountry,
                     ]);
-    
                     return true;
                 }
             }

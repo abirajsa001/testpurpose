@@ -12,6 +12,8 @@ namespace Novalnet\Assistants;
 use Novalnet\Assistants\SettingsHandlers\NovalnetAssistantSettingsHandler;
 use Novalnet\Helper\PaymentHelper;
 use Plenty\Modules\Wizard\Services\WizardProvider;
+use Plenty\Modules\Order\Shipping\Countries\Contracts\CountryRepositoryContract;
+use Plenty\Modules\System\Contracts\SystemInformationRepositoryContract;
 use Plenty\Modules\System\Contracts\WebstoreRepositoryContract;
 use Plenty\Plugin\Application;
 use Plenty\Plugin\Log\Loggable;
@@ -310,8 +312,6 @@ class NovalnetAssistant extends WizardProvider
         $config = $this->createInvoicePaymentConfiguration($config);
         // Load the Prepayment payment configuration
         $config = $this->createPrepaymentPaymentConfiguration($config);
-         // Load the Cashpayment payment configuration
-        $config = $this->createCashpaymentPaymentConfiguration($config);
         // Load the Allow B2B configuration
         $config = $this->createAllowB2BConfiguration($config);
         // Load the Allow Force configuration
@@ -450,30 +450,6 @@ class NovalnetAssistant extends WizardProvider
     }
 
     /**
-    * Create Slip expiry configuration for Cashpayment
-    *
-    * @param array $config
-    *
-    * @return array
-    */
-    public function createCashpaymentPaymentConfiguration($config)
-    {
-        $config['steps']['novalnetCashpayment']['sections'][]['form'] =
-        [
-            'novalnetCashpaymentDuedate' =>
-            [
-                'type' => 'text',
-                'options' => [
-                                'name'    => 'NovalnetAssistant.novalnetCashpaymentDueDateLabel',
-                                'tooltip' => 'NovalnetAssistant.novalnetCashpaymentDueDateTooltip',
-                                'pattern' => '^[1-9]\d*$'
-                             ]
-            ]
-        ];
-        return $config;
-    }
-
-    /**
     * Create payment additional configuration
     *
     * @param array $config
@@ -518,41 +494,63 @@ class NovalnetAssistant extends WizardProvider
     *
     * @return array
     */
-    public function createOnHoldConfiguration($config)
+  public function createOnHoldConfiguration($config)
     {
-         $onHoldSupportedPayments = ['novalnetSepa', 'novalnetCc', 'novalnetInvoice', 'novalnetGuaranteedInvoice', 'novalnetGuaranteedSepa', 'novalnetPaypal', 'novalnetApplepay', 'novalnetGooglepay','novalnetInstalmentInvoice','novalnetInstalmentSepa'];
-         foreach($onHoldSupportedPayments as $onHoldSupportedPayment) {
-            $config['steps'][$onHoldSupportedPayment]['sections'][]['form'] =
+
+    $paymentActionSupportedPayments = ['novalnetSepa', 'novalnetCc', 'novalnetInvoice', 'novalnetGuaranteedInvoice', 'novalnetGuaranteedSepa','novalnetPaypal', 'novalnetApplepay', 'novalnetGooglepay', 'novalnetInstalmentInvoice', 'novalnetInstalmentSepa', 'novalnetAch' ];
+
+    $onHoldSupportedPayments = ['novalnetSepa', 'novalnetCc', 'novalnetInvoice', 'novalnetGuaranteedInvoice', 'novalnetGuaranteedSepa','novalnetPaypal', 'novalnetApplepay', 'novalnetGooglepay','novalnetInstalmentInvoice', 'novalnetInstalmentSepa'];
+
+    $zeroAmountSupportedPayments = ['novalnetSepa', 'novalnetCc', 'novalnetApplepay', 'novalnetGooglepay', 'novalnetAch'];
+
+    foreach ($paymentActionSupportedPayments as $payment) {
+        // Base options
+        $listBoxValues = [
             [
-                $onHoldSupportedPayment . 'PaymentAction' =>
-                [
-                    'type'          => 'select',
-                    'defaultValue'  => 0,
-                    'options'       => [
-                                        'name'          => 'NovalnetAssistant.novalnetPaymentActionLabel',
-                                        'listBoxValues' => [
-                                            [
-                                            'caption'   => 'NovalnetAssistant.novalnetOnHoldCaptureLabel',
-                                            'value'     => 0
-                                            ],
-                                            [
-                                            'caption'   => 'NovalnetAssistant.novalnetOnHoldAuthorizeLabel',
-                                            'value'     => 1
-                                            ]
-                                        ]
-                                       ]
-                ],
-                $onHoldSupportedPayment . 'OnHold' =>
-                [
-                    'type'      => 'text',
-                    'options'   => [
-                                    'name'      => 'NovalnetAssistant.novalnetOnHoldLabel',
-                                    'tooltip'   => 'NovalnetAssistant.novalnetOnHoldTooltip'
-                                   ]
+                'caption' => 'NovalnetAssistant.novalnetOnHoldCaptureLabel',
+                'value'   => 0
+            ]
+        ];
+        // Add authorize option
+        if (in_array($payment, $onHoldSupportedPayments)) {
+            $listBoxValues[] = [
+                'caption' => 'NovalnetAssistant.novalnetOnHoldAuthorizeLabel',
+                'value'   => 1
+            ];
+        }
+        // Add zero amount option
+        if (in_array($payment, $zeroAmountSupportedPayments)) {
+            $listBoxValues[] = [
+                'caption' => 'NovalnetAssistant.novalnetZeroAmountLabel',
+                'value'   => 2
+            ];
+        }
+        // Build form dynamically
+        $form = [
+            $payment . 'PaymentAction' => [
+                'type'         => 'select',
+                'defaultValue' => 0,
+                'options'      => [
+                    'name'          => 'NovalnetAssistant.novalnetPaymentActionLabel',
+                    'listBoxValues' => $listBoxValues
+                ]
+            ]
+        ];
+        // Add OnHold field only if supported
+        if (in_array($payment, $onHoldSupportedPayments)) {
+            $form[$payment . 'OnHold'] = [
+                'type'    => 'text',
+                'options' => [
+                    'name'    => 'NovalnetAssistant.novalnetOnHoldLabel',
+                    'tooltip' => 'NovalnetAssistant.novalnetOnHoldTooltip'
                 ]
             ];
-         }
-         return $config;
+        }
+        // Assign to config
+        $config['steps'][$payment]['sections'][]['form'] = $form;
+    }
+
+    return $config;
     }
 
     /**
@@ -745,10 +743,14 @@ class NovalnetAssistant extends WizardProvider
             ],
             'novalnetGooglepayButtonHeight' =>
             [
-                  'type'    => 'text',
+                  'type'    => 'number',
                   'options' => [
                                  'name'     => 'NovalnetAssistant.novalnetGooglepayButtonHeightLabel',
                                  'tooltip'  => 'NovalnetAssistant.novalnetGooglepayButtonHeightTooltip',
+                                 'pattern'  => '^(3[0-9]|4[0-9]|5[0-9]|6[0-4])$',
+                                 'min'      => 30,
+                                 'max'      => 64,
+                                 'step'     => 1,
                                 ]
             ]
         ];
