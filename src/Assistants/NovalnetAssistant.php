@@ -809,7 +809,7 @@ class NovalnetAssistant extends WizardProvider
         }
         return $googlePayButtonTypes;
     }
-}
+
  /**
      * @return array
      */
@@ -1016,3 +1016,4 @@ class NovalnetAssistant extends WizardProvider
 
         return $this->language;
     }
+}
