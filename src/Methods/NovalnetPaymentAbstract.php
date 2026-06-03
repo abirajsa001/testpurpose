@@ -104,14 +104,16 @@ abstract class NovalnetPaymentAbstract extends PaymentMethodBaseService
 
             // Check if the Minimum order amount value met to payment display condition
             $activatePaymentMinimumAmount = true;
-            $minimumAmount = trim($this->settingsService->getPaymentSettingsValue('minimum_order_amount', strtolower($this::PAYMENT_KEY)));
+            $value = trim($this->settingsService->getPaymentSettingsValue('minimum_order_amount', strtolower($this::PAYMENT_KEY)));
+            $minimumAmount = ((float) ($value ?? 0)) * 100;
             if(!empty($minimumAmount) && is_numeric($minimumAmount)) {
                 $activatePaymentMinimumAmount = $this->paymentService->getMinBasketAmount($this->basketRepository, $minimumAmount);
             }
 
             // Check if the Maximum order amount value met to payment display condition
             $activatePaymentMaximumAmount = true;
-            $maximumAmount = trim($this->settingsService->getPaymentSettingsValue('maximum_order_amount', strtolower($this::PAYMENT_KEY)));
+            $value = trim($this->settingsService->getPaymentSettingsValue('maximum_order_amount', strtolower($this::PAYMENT_KEY)));
+            $maximumAmount = ((float) ($value ?? 0)) * 100;
             if(!empty($maximumAmount) && is_numeric($maximumAmount)) {
                 $activatePaymentMaximumAmount = $this->paymentService->getMaxBasketAmount($this->basketRepository, $maximumAmount);
             }

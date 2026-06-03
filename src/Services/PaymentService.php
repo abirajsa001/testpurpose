@@ -145,37 +145,40 @@ class PaymentService
      *
      * @return bool
      */
-    public function allowedCountries(Basket $basket, $allowedCountry)
-    {
-        $allowedCountry = str_replace(' ', '', strtoupper($allowedCountry));
-        $allowedCountryArray = explode(',', $allowedCountry);
-        try {
-            if(!is_null($basket) && $basket instanceof Basket && !empty($basket->customerInvoiceAddressId)) {
-                $billingAddressId = $basket->customerInvoiceAddressId;
-                $billingAddress = $this->paymentHelper->getCustomerAddress((int) $billingAddressId);
-                $country = $this->countryRepository->findIsoCode($billingAddress->countryId, 'iso_code_2');
-                $this->getLogger(__METHOD__)->error('Country validation', [
-                    'CountryId' => $country,
-                    'allowedCountries' =>   $allowedCountryArray,
-                    'alloweddata' => $billingAddress->countryId,
-                    'allowedcountry' => $allowedCountry,
-                ]);
-                if(!empty($billingAddress) && !empty($country) && in_array($country, $allowedCountryArray)) {
+    /**
+ * Show payment for allowed countries
+ *
+ * @param Basket $basket
+ * @param mixed  $allowedCountry   // array of country IDs: ["1","2"] or [1,2]
+ *
+ * @return bool
+ */
+public function allowedCountries(Basket $basket, $allowedCountry): bool
+{
+    // Normalize allowed countries to INT IDs
+    $allowedCountries = [];
+    if (is_array($allowedCountry)) {
+        $allowedCountries = array_map('intval', $allowedCountry);
+    } else {
+        $allowedCountries = array_map('intval', explode(',', (string) $allowedCountry));
+    }
 
-                    $this->getLogger(__METHOD__)->error('Country response', [
-                        'CountryId' => $country,
-                        'allowedCountries' =>   $allowedCountryArray,
-                        'alloweddata' => $billingAddress->countryId,
-                        'allowedcountry' => $allowedCountry,
-                    ]);
-                    return true;
-                }
-            }
-        } catch(\Exception $e) {
-            return false;
-        }
+    try {
+        // Get billing address
+        $billingAddress = $this->paymentHelper->getCustomerAddress((int) $basket->customerInvoiceAddressId);
+        // Customer country ID (INT)
+        $customerCountryId = (int) $billingAddress->country->id;
+        $isAllowed = in_array($customerCountryId, $allowedCountries, true);
+
+        return $isAllowed;
+
+    } catch (\Throwable $e) {
+        $this->getLogger(__METHOD__)->error('Allowed country check exception', [
+            'message' => $e->getMessage()
+        ]);
         return false;
     }
+}
 
     /**
      * Show payment for Minimum Order Amount
