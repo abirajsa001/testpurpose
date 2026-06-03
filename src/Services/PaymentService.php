@@ -154,9 +154,15 @@ class PaymentService
                 $billingAddressId = $basket->customerInvoiceAddressId;
                 $billingAddress = $this->paymentHelper->getCustomerAddress((int) $billingAddressId);
                 $country = $this->countryRepository->findIsoCode($billingAddress->countryId, 'iso_code_2');
+                $this->getLogger(__METHOD__)->error('Country validation', [
+                    'CountryId' => $country,
+                    'allowedCountries' =>   $allowedCountryArray,
+                    'alloweddata' => $billingAddress->countryId,
+                    'allowedcountry' => $allowedCountry,
+                ]);
                 if(!empty($billingAddress) && !empty($country) && in_array($country, $allowedCountryArray)) {
 
-                    $this->getLogger(__METHOD__)->error('Country validation', [
+                    $this->getLogger(__METHOD__)->error('Country response', [
                         'CountryId' => $country,
                         'allowedCountries' =>   $allowedCountryArray,
                         'alloweddata' => $billingAddress->countryId,
