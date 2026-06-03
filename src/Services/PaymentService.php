@@ -161,8 +161,6 @@ class PaymentService
                         'allowedCountries' =>   $allowedCountryArray,
                         'alloweddata' => $billingAddress->countryId,
                         'allowedcountry' => $allowedCountry,
-
-
                     ]);
     
                     return true;
